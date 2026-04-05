@@ -10,12 +10,16 @@ import {
 import { AppSidebar } from "@/components/sidebar"
 import { IntegrationsProvider } from "@/providers/integrations"
 
-async function hasDriveScope(userId: string) {
+async function getGoogleScopes(userId: string) {
   const account = await prisma.account.findFirst({
     where: { userId, providerId: "google" },
     select: { scope: true },
   })
-  return account?.scope?.includes("drive") ?? false
+  const scope = account?.scope ?? ""
+  return {
+    driveConnected: scope.includes("drive"),
+    docsConnected: scope.includes("documents"),
+  }
 }
 
 export default async function AppLayout({
@@ -24,10 +28,12 @@ export default async function AppLayout({
   children: React.ReactNode
 }) {
   const session = await auth.api.getSession({ headers: await headers() })
-  const driveConnected = session ? await hasDriveScope(session.user.id) : false
+  const { driveConnected, docsConnected } = session
+    ? await getGoogleScopes(session.user.id)
+    : { driveConnected: false, docsConnected: false }
 
   return (
-    <IntegrationsProvider value={{ driveConnected }}>
+    <IntegrationsProvider value={{ driveConnected, docsConnected }}>
       <SidebarProvider>
         <Suspense>
           <AppSidebar />

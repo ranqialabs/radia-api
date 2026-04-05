@@ -4,10 +4,12 @@ import { createContext, useContext } from "react"
 
 type Integrations = {
   driveConnected: boolean
+  docsConnected: boolean
 }
 
 const IntegrationsContext = createContext<Integrations>({
   driveConnected: false,
+  docsConnected: false,
 })
 
 export function IntegrationsProvider({
