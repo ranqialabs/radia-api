@@ -1,8 +1,19 @@
+import type { Metadata } from "next"
 import { Geist, JetBrains_Mono } from "next/font/google"
 
 import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
+import { ThemeProvider } from "@/providers/theme"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
+
+export const metadata: Metadata = {
+  title: {
+    default: "Radia",
+    template: "%s | Radia",
+  },
+  description:
+    "Autonomous organizational memory and task suggestion system for RanqIA. Observes meetings, documents, and messages to build a queryable knowledge base and suggest GitHub issues.",
+}
 
 const fontSans = Geist({
   subsets: ["latin"],
@@ -31,7 +42,9 @@ export default function RootLayout({
       )}
     >
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <TooltipProvider>{children}</TooltipProvider>
+        </ThemeProvider>
       </body>
     </html>
   )
