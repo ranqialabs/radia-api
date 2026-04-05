@@ -13,15 +13,16 @@ datasource db {
 }
 
 model User {
-  id            String    @id
-  name          String
-  email         String
-  emailVerified Boolean   @default(false)
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  sessions      Session[]
-  accounts      Account[]
+  id              String          @id
+  name            String
+  email           String
+  emailVerified   Boolean         @default(false)
+  image           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  sessions        Session[]
+  accounts        Account[]
+  meetingMemories MeetingMemory[]
 
   @@unique([email])
   @@map("user")
@@ -61,6 +62,19 @@ model Account {
 
   @@index([userId])
   @@map("account")
+}
+
+model MeetingMemory {
+  id          String   @id @default(cuid())
+  fileId      String
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mem0Ids     String[]
+  title       String?
+  processedAt DateTime @default(now())
+
+  @@unique([fileId, userId])
+  @@map("meeting_memory")
 }
 
 model Verification {
