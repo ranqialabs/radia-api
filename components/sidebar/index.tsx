@@ -51,7 +51,11 @@ export function AppSidebar() {
             connected={driveConnected}
             onConnectAction={requestDriveAccess}
           />
-          <AccountItem name={session?.user.name} email={session?.user.email} />
+          <AccountItem
+            name={session?.user.name}
+            email={session?.user.email}
+            image={session?.user.image}
+          />
         </SidebarMenu>
       </SidebarFooter>
 

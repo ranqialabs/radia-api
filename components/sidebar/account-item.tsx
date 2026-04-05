@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useTransition } from "react"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Logout01Icon, MoreVerticalIcon } from "@hugeicons/core-free-icons"
@@ -20,9 +21,10 @@ import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 type AccountItemProps = {
   name?: string | null
   email?: string | null
+  image?: string | null
 }
 
-export function AccountItem({ name, email }: AccountItemProps) {
+export function AccountItem({ name, email, image }: AccountItemProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
@@ -50,6 +52,14 @@ export function AccountItem({ name, email }: AccountItemProps) {
         >
           {isLoading ? (
             <Skeleton className="size-8 shrink-0 rounded-full" />
+          ) : image ? (
+            <Image
+              src={image}
+              alt={name ?? "Avatar"}
+              width={32}
+              height={32}
+              className="size-8 shrink-0 rounded-full object-cover"
+            />
           ) : (
             <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-bold uppercase">
               {name?.[0]?.toUpperCase() ?? "?"}
