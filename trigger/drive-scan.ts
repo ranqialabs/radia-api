@@ -37,7 +37,9 @@ export const driveScanTask = task({
       files: files.map((f) => ({ id: f.id, name: f.name })),
     })
 
-    const validFiles = files.filter((f) => f.id && f.name) as (typeof files[number] & {
+    const validFiles = files.filter(
+      (f) => f.id && f.name
+    ) as ((typeof files)[number] & {
       id: string
       name: string
     })[]
