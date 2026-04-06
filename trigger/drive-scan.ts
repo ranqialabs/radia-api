@@ -70,32 +70,56 @@ export const driveScanTask = schemaTask({
       logger.log(
         `Extracted ${extracted.memories.length} memories, ${extracted.entities.length} entities`,
         {
-          entities: extracted.entities.map((e) => e.name),
+          participants: extracted.participants,
+          entities: extracted.entities.map((e) => `${e.name} (${e.type})`),
         }
       )
 
-      const messages = [
-        ...extracted.memories.map((m) => ({
-          role: "user" as const,
-          content: m.content,
-        })),
-        ...extracted.entities.map((e) => ({
-          role: "user" as const,
-          content: `Entity identified: ${e.name} (${e.type})${e.aliases.length ? `, also known as: ${e.aliases.join(", ")}` : ""}`,
-        })),
-      ]
+      // Mark as processed early to prevent reprocessing if we crash mid-flight.
+      // mem0Ids will be updated after successful ingestion.
+      await prisma.meetingMemory.upsert({
+        where: { fileId_userId: { fileId: file.id, userId } },
+        create: { fileId: file.id, userId, title: file.name, mem0Ids: [] },
+        update: {},
+      })
 
-      if (messages.length === 0) {
-        logger.log(`No memories extracted from: ${file.name}, skipping`)
+      if (extracted.memories.length === 0 && extracted.entities.length === 0) {
+        logger.log(
+          `No memories extracted from: ${file.name}, skipping mem0 ingestion`
+        )
         continue
       }
 
-      const result = await mem0.add(messages, {
+      // Build messages scoped to this meeting.
+      // Using run_id = fileId isolates each meeting as its own episode in mem0,
+      // enabling per-meeting filtering and preventing cross-meeting noise.
+      const meetingContext = `[Meeting: ${file.name}${extracted.participants.length ? ` | Participants: ${extracted.participants.join(", ")}` : ""}]`
+
+      const memoryMessages = extracted.memories.map((m) => ({
+        role: "user" as const,
+        content: `${meetingContext} ${m.content}`,
+      }))
+
+      // Entities are sent as a separate batch with their own context so mem0
+      // understands these are named entity definitions, not just facts.
+      const entityMessages = extracted.entities.map((e) => ({
+        role: "user" as const,
+        content: `${meetingContext} Entity: ${e.name} is a ${e.type}${e.description ? ` — ${e.description}` : ""}${e.aliases.length ? `. Also referred to as: ${e.aliases.join(", ")}` : ""}.`,
+      }))
+
+      const allMessages = [...entityMessages, ...memoryMessages]
+
+      const result = await mem0.add(allMessages, {
         user_id: userId,
+        // run_id scopes this batch to the specific meeting file,
+        // enabling future per-meeting searches and deletions.
+        run_id: file.id,
         metadata: {
           fileId: file.id,
           title: file.name,
           source: "google-drive",
+          sourceType: "meeting-transcript",
+          participants: extracted.participants,
           modifiedTime: file.modifiedTime ?? null,
         },
       })
@@ -107,16 +131,23 @@ export const driveScanTask = schemaTask({
       }
 
       const mem0Ids = Array.isArray(result)
-        ? result.map((r: { id: string }) => r.id)
+        ? result
+            .map((r: { id?: string }) => r.id)
+            .filter((id): id is string => id !== undefined)
         : []
 
-      await prisma.meetingMemory.create({
-        data: { fileId: file.id, userId, title: file.name, mem0Ids },
+      await prisma.meetingMemory.update({
+        where: { fileId_userId: { fileId: file.id, userId } },
+        data: { mem0Ids },
       })
 
       processed++
       metadata.set("processed", processed)
-      logger.log(`Ingested: ${file.name}`, { mem0Ids })
+      logger.log(`Ingested: ${file.name}`, {
+        mem0Ids: mem0Ids.length,
+        memories: extracted.memories.length,
+        entities: extracted.entities.length,
+      })
     }
 
     logger.log("Drive scan complete", { processed, skipped })
