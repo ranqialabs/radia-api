@@ -23,6 +23,7 @@ model User {
   sessions        Session[]
   accounts        Account[]
   meetingMemories MeetingMemory[]
+  monitoredFolder MonitoredFolder?
 
   @@unique([email])
   @@map("user")
@@ -75,6 +76,19 @@ model MeetingMemory {
 
   @@unique([fileId, userId])
   @@map("meeting_memory")
+}
+
+model MonitoredFolder {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folderId   String
+  folderName String
+  scheduleId String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("monitored_folder")
 }
 
 model Verification {
