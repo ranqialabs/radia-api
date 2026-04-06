@@ -5,22 +5,10 @@ import {
   getDriveClient,
   getValidAccessToken,
   listDriveFiles,
-  type DocTab,
 } from "../lib/google-drive"
+import { extractMemories } from "../lib/memory-extractor"
 import { mem0 } from "../lib/mem0"
 import { prisma } from "../lib/prisma"
-
-function tabToMessage(tab: DocTab) {
-  // Mem0 expects "user" for raw dialog (transcription) and "assistant" for summaries.
-  // This lets Mem0 extract memories with correct conversational context.
-  const isTranscription = ["transcript", "transcrição", "transcricao"].some(
-    (k) => tab.title.toLowerCase().includes(k)
-  )
-  return {
-    role: isTranscription ? ("user" as const) : ("assistant" as const),
-    content: `[${tab.title}]\n\n${tab.text}`,
-  }
-}
 
 export const driveScanTask = schemaTask({
   id: "drive-scan",
@@ -77,7 +65,30 @@ export const driveScanTask = schemaTask({
         tabs: tabs.map((t) => ({ title: t.title, chars: t.text.length })),
       })
 
-      const messages = tabs.map(tabToMessage)
+      const extracted = await extractMemories(tabs, file.name)
+
+      logger.log(
+        `Extracted ${extracted.memories.length} memories, ${extracted.entities.length} entities`,
+        {
+          entities: extracted.entities.map((e) => e.name),
+        }
+      )
+
+      const messages = [
+        ...extracted.memories.map((m) => ({
+          role: "user" as const,
+          content: m.content,
+        })),
+        ...extracted.entities.map((e) => ({
+          role: "user" as const,
+          content: `Entity identified: ${e.name} (${e.type})${e.aliases.length ? `, also known as: ${e.aliases.join(", ")}` : ""}`,
+        })),
+      ]
+
+      if (messages.length === 0) {
+        logger.log(`No memories extracted from: ${file.name}, skipping`)
+        continue
+      }
 
       const result = await mem0.add(messages, {
         user_id: userId,
@@ -88,6 +99,12 @@ export const driveScanTask = schemaTask({
           modifiedTime: file.modifiedTime ?? null,
         },
       })
+
+      if (!Array.isArray(result)) {
+        logger.warn(`Unexpected mem0.add response for: ${file.name}`, {
+          result,
+        })
+      }
 
       const mem0Ids = Array.isArray(result)
         ? result.map((r: { id: string }) => r.id)
