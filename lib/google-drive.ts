@@ -82,6 +82,20 @@ export async function listDriveFiles(
   return res.data.files ?? []
 }
 
+export async function listDriveFolders(
+  drive: drive_v3.Drive,
+  parentId = "root"
+): Promise<drive_v3.Schema$File[]> {
+  const res = await drive.files.list({
+    q: `mimeType='application/vnd.google-apps.folder' and trashed=false and '${parentId}' in parents`,
+    orderBy: "name",
+    pageSize: 100,
+    fields: "files(id, name)",
+  })
+
+  return res.data.files ?? []
+}
+
 export async function exportDocAsText(
   drive: drive_v3.Drive,
   fileId: string
