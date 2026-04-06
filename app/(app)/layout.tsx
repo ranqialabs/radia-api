@@ -54,7 +54,9 @@ export default async function AppLayout({
           <header className="flex h-12 items-center border-b px-4">
             <SidebarTrigger />
           </header>
-          <main className="flex-1 p-6">{children}</main>
+          <main className="flex-1 p-6">
+            <div className="container mx-auto">{children}</div>
+          </main>
         </SidebarInset>
       </SidebarProvider>
     </IntegrationsProvider>
