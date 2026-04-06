@@ -42,7 +42,7 @@ export const meetScanTask = schemaTask({
 
     const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
     const conferences = await listConferenceRecords(meetClient, {
-      filter: `startTime > "${since}"`,
+      filter: `startTime > ${since}`,
     })
 
     logger.log(`Found ${conferences.length} conference records`)
