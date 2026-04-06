@@ -73,12 +73,11 @@ export async function listTranscriptsWithDoc(
   }))
 }
 
-export async function listTranscriptEntries(
+async function* iterTranscriptEntries(
   accessToken: string,
   transcriptName: string
-): Promise<TranscriptEntry[]> {
+): AsyncGenerator<TranscriptEntry> {
   const meet = getMeetClient(accessToken)
-  const entries: TranscriptEntry[] = []
   let pageToken: string | undefined
 
   do {
@@ -89,19 +88,17 @@ export async function listTranscriptEntries(
     })
 
     for (const e of res.data.transcriptEntries ?? []) {
-      entries.push({
+      yield {
         participant: e.participant ?? "",
         text: e.text ?? "",
         startTime: e.startTime ?? null,
         endTime: e.endTime ?? null,
         languageCode: e.languageCode ?? null,
-      })
+      }
     }
 
     pageToken = res.data.nextPageToken ?? undefined
   } while (pageToken)
-
-  return entries
 }
 
 export async function resolveParticipant(
@@ -128,25 +125,19 @@ export async function buildFormattedTranscript(
   accessToken: string,
   transcriptName: string
 ): Promise<string> {
-  const entries = await listTranscriptEntries(accessToken, transcriptName)
-
-  const uniqueParticipants = [
-    ...new Set(entries.map((e) => e.participant).filter(Boolean)),
-  ]
   const nameMap = new Map<string, string>()
+  const lines: string[] = []
 
-  await Promise.all(
-    uniqueParticipants.map(async (p) => {
-      const name = await resolveParticipant(accessToken, p)
-      nameMap.set(p, name ?? "Unknown")
-    })
-  )
+  for await (const e of iterTranscriptEntries(accessToken, transcriptName)) {
+    if (e.participant && !nameMap.has(e.participant)) {
+      const name = await resolveParticipant(accessToken, e.participant)
+      nameMap.set(e.participant, name ?? "Unknown")
+    }
 
-  return entries
-    .map((e) => {
-      const speaker = nameMap.get(e.participant) ?? "Unknown"
-      const time = e.startTime ? new Date(e.startTime).toISOString() : ""
-      return `[${time}] ${speaker}: ${e.text}`
-    })
-    .join("\n")
+    const speaker = nameMap.get(e.participant) ?? "Unknown"
+    const time = e.startTime ? new Date(e.startTime).toISOString() : ""
+    lines.push(`[${time}] ${speaker}: ${e.text}`)
+  }
+
+  return lines.join("\n")
 }
